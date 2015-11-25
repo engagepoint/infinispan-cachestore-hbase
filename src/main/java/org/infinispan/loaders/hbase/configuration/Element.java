@@ -3,19 +3,12 @@ package org.infinispan.loaders.hbase.configuration;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.infinispan.loaders.hbase.HBaseCacheStore;
 
-/**
- * An enumeration of all the recognized XML element local names for the {@link HBaseCacheStore}
- *
- * @author Tristan Tarrant
- * @since 5.2
- */
 public enum Element {
     // must be first
     UNKNOWN(null),
 
-    HBASE_STORE("hbaseStore"),
+    HBASE_STORE("hbase-store"),
     ;
 
     private final String name;

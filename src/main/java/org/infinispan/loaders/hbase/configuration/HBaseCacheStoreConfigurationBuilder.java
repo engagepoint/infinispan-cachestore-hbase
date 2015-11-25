@@ -1,37 +1,17 @@
 package org.infinispan.loaders.hbase.configuration;
 
+import org.infinispan.commons.configuration.Builder;
 import org.infinispan.configuration.cache.AbstractStoreConfigurationBuilder;
-import org.infinispan.configuration.cache.LoadersConfigurationBuilder;
-import org.infinispan.loaders.hbase.HBaseCacheStore;
-import org.infinispan.loaders.keymappers.MarshalledValueOrPrimitiveMapper;
-import org.infinispan.loaders.keymappers.TwoWayKey2StringMapper;
-import org.infinispan.commons.util.TypedProperties;
+import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
+import org.infinispan.persistence.keymappers.TwoWayKey2StringMapper;
 
-/**
- * HBaseCacheStoreConfigurationBuilder. Configures a {@link HBaseCacheStore}
- *
- * @author Tristan Tarrant
- * @since 5.2
- */
+
 public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurationBuilder<HBaseCacheStoreConfiguration, HBaseCacheStoreConfigurationBuilder> {
 
-   private boolean autoCreateTable = true;
-   private String entryColumnFamily = "E";
-   private String entryTable = "ISPNCacheStore";
-   private String entryValueField = "EV";
-   private String expirationColumnFamily = "X";
-   private String expirationTable = "ISPNCacheStoreExpiration";
-   private String expirationValueField = "XV";
-   private String hbaseZookeeperQuorumHost = "localhost";
-   private int hbaseZookeeperClientPort = 2181;
-   private String keyMapper = MarshalledValueOrPrimitiveMapper.class.getName();
-   private boolean sharedTable = false;
-
-   public HBaseCacheStoreConfigurationBuilder(LoadersConfigurationBuilder builder) {
-      super(builder);
+   public HBaseCacheStoreConfigurationBuilder(PersistenceConfigurationBuilder builder) {
+      super(builder, HBaseCacheStoreConfiguration.attributeDefinitionSet());
    }
 
-   @Override
    public HBaseCacheStoreConfigurationBuilder self() {
       return this;
    }
@@ -41,7 +21,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * default).
     */
    public HBaseCacheStoreConfigurationBuilder autoCreateTable(boolean autoCreateTable) {
-      this.autoCreateTable = autoCreateTable;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.AUTO_CREATE_TABLE).set(autoCreateTable);
       return this;
    }
 
@@ -49,7 +29,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * The column family for entries. Defaults to 'E'
     */
    public HBaseCacheStoreConfigurationBuilder entryColumnFamily(String entryColumnFamily) {
-      this.entryColumnFamily = entryColumnFamily;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.ENTRY_COLUMN_FAMILY).set(entryColumnFamily);
       return this;
    }
 
@@ -57,7 +37,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * The HBase table for storing the cache entries. Defaults to 'ISPNCacheStore'
     */
    public HBaseCacheStoreConfigurationBuilder entryTable(String entryTable) {
-      this.entryTable = entryTable;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.ENTRY_TABLE).set(entryTable);
       return this;
    }
 
@@ -65,7 +45,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * The field name containing the entries. Defaults to 'EV'
     */
    public HBaseCacheStoreConfigurationBuilder entryValueField(String entryValueField) {
-      this.entryValueField = entryValueField;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.ENTRY_VALUE_FIELD).set(entryValueField);
       return this;
    }
 
@@ -73,7 +53,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * The column family for expiration metadata. Defaults to 'X'
     */
    public HBaseCacheStoreConfigurationBuilder expirationColumnFamily(String expirationColumnFamily) {
-      this.expirationColumnFamily = expirationColumnFamily;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.EXPIRATION_COLUMN_FAMILY).set(expirationColumnFamily);
       return this;
    }
 
@@ -82,7 +62,7 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * 'ISPNCacheStoreExpiration'
     */
    public HBaseCacheStoreConfigurationBuilder expirationTable(String expirationTable) {
-      this.expirationTable = expirationTable;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.EXPIRATION_TABLE).set(expirationTable);
       return this;
    }
 
@@ -90,83 +70,35 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
     * The field name containing the expiration metadata. Defaults to 'XV'
     */
    public HBaseCacheStoreConfigurationBuilder expirationValueField(String expirationValueField) {
-      this.expirationValueField = expirationValueField;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.EXPIRATION_VALUE_FIELD).set(expirationValueField);
       return this;
    }
 
-   /**
-    * The HBase zookeeper client port. Defaults to 'localhost'
-    */
-   public HBaseCacheStoreConfigurationBuilder hbaseZookeeperQuorumHost(String hbaseZookeeperQuorumHost) {
-      this.hbaseZookeeperQuorumHost = hbaseZookeeperQuorumHost;
-      return this;
-   }
-
-   /**
-    * The HBase zookeeper client port. Defaults to '2181'
-    */
-   public HBaseCacheStoreConfigurationBuilder hbaseZookeeperClientPort(int hbaseZookeeperClientPort) {
-      this.hbaseZookeeperClientPort = hbaseZookeeperClientPort;
-      return this;
-   }
-
-   /**
-    * The keymapper for converting keys to strings (uses the
-    * {@link MarshalledValueOrPrimitiveMapper} by default)
-    */
-   public HBaseCacheStoreConfigurationBuilder keyMapper(String keyMapper) {
-      this.keyMapper = keyMapper;
-      return this;
-   }
-
-   /**
-    * The keymapper for converting keys to strings (uses the
-    * {@link MarshalledValueOrPrimitiveMapper} by default)
-    */
-   public HBaseCacheStoreConfigurationBuilder keyMapper(Class<? extends TwoWayKey2StringMapper> keyMapper) {
-      this.keyMapper = keyMapper.getName();
-      return this;
-   }
 
    /**
     * Whether the table is shared between multiple caches. Defaults to 'false'
     */
    public HBaseCacheStoreConfigurationBuilder sharedTable(boolean sharedTable) {
-      this.sharedTable = sharedTable;
+      this.attributes.attribute(HBaseCacheStoreConfiguration.SHARED_TABLE).set(sharedTable);
+      return this;
+   }
+
+   /**
+    * The keymapper for converting keys to strings (uses the
+    */
+   public HBaseCacheStoreConfigurationBuilder keyMapper(Class<? extends TwoWayKey2StringMapper> keyMapper) {
+      this.attributes.attribute(HBaseCacheStoreConfiguration.KEY2STRING_MAPPER).set(keyMapper.getName());
       return this;
    }
 
    @Override
+   public Builder<?> read(HBaseCacheStoreConfiguration template) {
+      super.read(template);
+      return this;
+   }
+
    public HBaseCacheStoreConfiguration create() {
-      return new HBaseCacheStoreConfiguration(autoCreateTable, entryColumnFamily, entryTable, entryValueField, expirationColumnFamily, expirationTable, expirationValueField,
-            hbaseZookeeperQuorumHost, hbaseZookeeperClientPort, keyMapper, sharedTable, purgeOnStartup, purgeSynchronously, purgerThreads, fetchPersistentState,
-            ignoreModifications, TypedProperties.toTypedProperties(properties), async.create(), singletonStore.create());
-   }
-
-   @Override
-   public HBaseCacheStoreConfigurationBuilder read(HBaseCacheStoreConfiguration template) {
-      autoCreateTable = template.autoCreateTable();
-      entryColumnFamily = template.entryColumnFamily();
-      entryTable = template.entryTable();
-      entryValueField = template.entryValueField();
-      expirationColumnFamily = template.expirationColumnFamily();
-      expirationTable = template.expirationTable();
-      expirationValueField = template.expirationValueField();
-      hbaseZookeeperQuorumHost = template.hbaseZookeeperQuorumHost();
-      hbaseZookeeperClientPort = template.hbaseZookeeperClientPort();
-      keyMapper = template.keyMapper();
-      sharedTable = template.sharedTable();
-
-      // AbstractStore-specific configuration
-      fetchPersistentState = template.fetchPersistentState();
-      ignoreModifications = template.ignoreModifications();
-      properties = template.properties();
-      purgeOnStartup = template.purgeOnStartup();
-      purgeSynchronously = template.purgeSynchronously();
-      async.read(template.async());
-      singletonStore.read(template.singletonStore());
-
-      return this;
+      return new HBaseCacheStoreConfiguration(this.attributes.protect(), this.async.create(), this.singletonStore.create());
    }
 
 }

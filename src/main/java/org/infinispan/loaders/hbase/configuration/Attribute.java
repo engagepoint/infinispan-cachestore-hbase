@@ -3,29 +3,18 @@ package org.infinispan.loaders.hbase.configuration;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.infinispan.loaders.hbase.HBaseCacheStore;
 
-/**
- * Enumerates the attributes used by the {@link HBaseCacheStore} configuration
- *
- * @author Tristan Tarrant
- * @since 5.2
- */
 public enum Attribute {
    // must be first
    UNKNOWN(null),
-   AUTO_CREATE_TABLE("autoCreateTable"),
-   ENTRY_COLUMN_FAMILY("entryColumnFamily"),
-   ENTRY_TABLE("entryTable"),
-   ENTRY_VALUE_FIELD("entryValueField"),
-   EXPIRATION_COLUMN_FAMILY("expirationColumnFamily"),
-   EXPIRATION_TABLE("expirationTable"),
-   EXPIRATION_VALUE_FIELD("expirationValueField"),
-   HBASE_ZOOKEEPER_QUORUM_HOST("hbaseZookeeperQuorumHost"),
-   HBASE_ZOOKEEPER_CLIENT_PORT("hbaseZookeeperClientPort"),
-   KEY_MAPPER("keyMapper"),
-   SHARED_TABLE("sharedTable"),
-   ;
+   AUTO_CREATE_TABLE("auto-create-table"),
+   ENTRY_COLUMN_FAMILY("entry-column-family"),
+   ENTRY_TABLE("entry-table"),
+   ENTRY_VALUE_FIELD("entry-value-field"),
+   EXPIRATION_COLUMN_FAMILY("expiration-column-family"),
+   EXPIRATION_TABLE("expiration-table"),
+   EXPIRATION_VALUE_FIELD("expiration-value-field"),
+   SHARED_TABLE("shared-table");
 
    private final String name;
 

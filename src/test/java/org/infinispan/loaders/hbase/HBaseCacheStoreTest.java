@@ -1,41 +1,37 @@
 package org.infinispan.loaders.hbase;
 
-import org.infinispan.loaders.BaseCacheStoreTest;
-import org.infinispan.loaders.CacheLoaderException;
-import org.infinispan.loaders.CacheStore;
-import org.infinispan.loaders.hbase.test.HBaseCluster;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.loaders.hbase.configuration.HBaseCacheStoreConfigurationBuilder;
+import org.infinispan.persistence.BaseStoreTest;
+import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
+import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
 
 @Test(groups = "functional", testName = "loaders.hbase.HBaseCacheStoreTest")
-public class HBaseCacheStoreTest extends BaseCacheStoreTest {
+public class HBaseCacheStoreTest extends BaseStoreTest {
 
-   HBaseCluster hBaseCluster;
 
-   @BeforeClass
-   public void beforeClass() throws Exception {
-      hBaseCluster = new HBaseCluster();
-   }
+   @Override
+   protected AdvancedLoadWriteStore createStore() throws Exception {
+      ConfigurationBuilder builder = TestCacheManagerFactory.getDefaultCacheConfiguration(false);
+      HBaseCacheStoreConfigurationBuilder storeConfigurationBuilder =
+              builder.persistence().addStore(HBaseCacheStoreConfigurationBuilder.class);
+      storeConfigurationBuilder.autoCreateTable(true)
+              .entryColumnFamily("ECF")
+              .entryTable("ET")
+              .entryValueField("EVF")
+              .expirationColumnFamily("XCF")
+              .expirationTable("XT")
+              .expirationValueField("XVF")
+              .sharedTable(true);
+      HBaseCacheStore store = new HBaseCacheStore();
+      store.init(createContext(builder.build()));
 
-   @AfterClass
-   public void afterClass() throws CacheLoaderException {
-      HBaseCluster.shutdown(hBaseCluster);
+      return store;
    }
 
    @Override
-   protected CacheStore createCacheStore() throws Exception {
-      HBaseCacheStore cs = new HBaseCacheStore();
-      // This uses the default config settings in HBaseCacheStoreConfig
-      HBaseCacheStoreConfig conf = new HBaseCacheStoreConfig();
-      conf.setPurgeSynchronously(true);
-
-      // overwrite the ZooKeeper client port with the port from the embedded server
-      conf.setHbaseZookeeperPropertyClientPort(hBaseCluster.getZooKeeperPort());
-
-      cs.init(conf, getCache(), getMarshaller());
-      cs.start();
-      return cs;
+   protected void purgeExpired(String... expiredKeys) throws Exception {
+      //TODO This test is skipped because replaces the old value with the new one in expiration table
    }
-
 }

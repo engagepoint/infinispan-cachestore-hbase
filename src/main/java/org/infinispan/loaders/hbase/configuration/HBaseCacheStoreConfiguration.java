@@ -1,110 +1,99 @@
 package org.infinispan.loaders.hbase.configuration;
 
+import org.infinispan.commons.configuration.BuiltBy;
+import org.infinispan.commons.configuration.ConfigurationFor;
+import org.infinispan.commons.configuration.attributes.Attribute;
+import org.infinispan.commons.configuration.attributes.AttributeDefinition;
+import org.infinispan.commons.configuration.attributes.AttributeSet;
 import org.infinispan.configuration.cache.AbstractStoreConfiguration;
 import org.infinispan.configuration.cache.AsyncStoreConfiguration;
-import org.infinispan.configuration.cache.LegacyConfigurationAdaptor;
-import org.infinispan.configuration.cache.LegacyLoaderAdapter;
 import org.infinispan.configuration.cache.SingletonStoreConfiguration;
-import org.infinispan.loaders.hbase.HBaseCacheStoreConfig;
-import org.infinispan.commons.configuration.BuiltBy;
-import org.infinispan.commons.util.TypedProperties;
+import org.infinispan.loaders.hbase.HBaseCacheStore;
+import org.infinispan.persistence.keymappers.MarshalledValueOrPrimitiveMapper;
 
 @BuiltBy(HBaseCacheStoreConfigurationBuilder.class)
-public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration implements LegacyLoaderAdapter<HBaseCacheStoreConfig> {
+@ConfigurationFor(HBaseCacheStore.class)
+public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration {
 
-   private final boolean autoCreateTable;
-   private final String entryColumnFamily;
-   private final String entryTable;
-   private final String entryValueField;
-   private final String expirationColumnFamily;
-   private final String expirationTable;
-   private final String expirationValueField;
-   private final String hbaseZookeeperQuorumHost;
-   private final int hbaseZookeeperClientPort;
-   private final String keyMapper;
-   private final boolean sharedTable;
+    private final Attribute<Boolean> autoCreateTable;
+    private final Attribute<String> entryColumnFamily;
+    private final Attribute<String> entryTable;
+    private final Attribute<String> entryValueField;
+    private final Attribute<String> expirationColumnFamily;
+    private final Attribute<String> expirationTable;
+    private final Attribute<String> expirationValueField;
+    private final Attribute<Boolean> sharedTable;
+    private final Attribute<String> key2StringMapper;
 
-   public HBaseCacheStoreConfiguration(boolean autoCreateTable, String entryColumnFamily, String entryTable, String entryValueField, String expirationColumnFamily,
-         String expirationTable, String expirationValueField, String hbaseZookeeperQuorumHost, int hbaseZookeeperClientPort, String keyMapper, boolean sharedTable,
-         boolean purgeOnStartup, boolean purgeSynchronously, int purgerThreads, boolean fetchPersistentState, boolean ignoreModifications, TypedProperties properties,
-         AsyncStoreConfiguration asyncStoreConfiguration, SingletonStoreConfiguration singletonStoreConfiguration) {
-      super(purgeOnStartup, purgeSynchronously, purgerThreads, fetchPersistentState, ignoreModifications, properties, asyncStoreConfiguration, singletonStoreConfiguration);
-      this.autoCreateTable = autoCreateTable;
-      this.entryColumnFamily = entryColumnFamily;
-      this.entryTable = entryTable;
-      this.entryValueField = entryValueField;
-      this.expirationColumnFamily = expirationColumnFamily;
-      this.expirationTable = expirationTable;
-      this.expirationValueField = expirationValueField;
-      this.hbaseZookeeperQuorumHost = hbaseZookeeperQuorumHost;
-      this.hbaseZookeeperClientPort = hbaseZookeeperClientPort;
-      this.keyMapper = keyMapper;
-      this.sharedTable = sharedTable;
-   }
+    static final AttributeDefinition<String> ENTRY_TABLE = AttributeDefinition.builder("entryTable", null, String.class).build();
+    static final AttributeDefinition<String> EXPIRATION_TABLE = AttributeDefinition.builder("expirationTable", null, String.class).build();
+    static final AttributeDefinition<Boolean> AUTO_CREATE_TABLE = AttributeDefinition.builder("autoCreateTable", false, Boolean.class).build();
+    static final AttributeDefinition<String> ENTRY_COLUMN_FAMILY = AttributeDefinition.builder("entryColumnFamily", null, String.class).build();
+    static final AttributeDefinition<String> ENTRY_VALUE_FIELD = AttributeDefinition.builder("entryValueField", null, String.class).build();
+    static final AttributeDefinition<String> EXPIRATION_COLUMN_FAMILY = AttributeDefinition.builder("expirationColumnFamily", null, String.class).build();
+    static final AttributeDefinition<String> EXPIRATION_VALUE_FIELD = AttributeDefinition.builder("expirationValueField", null, String.class).build();
+    static final AttributeDefinition<Boolean> SHARED_TABLE = AttributeDefinition.builder("sharedTable", false, Boolean.class).build();
+    static final AttributeDefinition<String> KEY2STRING_MAPPER = AttributeDefinition.builder("key2StringMapper" ,
+            MarshalledValueOrPrimitiveMapper.class.getName()).immutable().build();
 
-   public boolean autoCreateTable() {
-      return autoCreateTable;
-   }
 
-   public String entryColumnFamily() {
-      return entryColumnFamily;
-   }
+    public static AttributeSet attributeDefinitionSet() {
+        return new AttributeSet(HBaseCacheStoreConfiguration.class, AbstractStoreConfiguration.attributeDefinitionSet(),
+                ENTRY_TABLE, EXPIRATION_TABLE, AUTO_CREATE_TABLE, ENTRY_COLUMN_FAMILY, ENTRY_VALUE_FIELD, EXPIRATION_COLUMN_FAMILY,
+                EXPIRATION_VALUE_FIELD, SHARED_TABLE, KEY2STRING_MAPPER);
+    }
 
-   public String entryTable() {
-      return entryTable;
-   }
+    public HBaseCacheStoreConfiguration(AttributeSet attributes,
+                                        AsyncStoreConfiguration async,
+                                        SingletonStoreConfiguration singletonStore
+    ) {
+        super(attributes, async, singletonStore);
 
-   public String entryValueField() {
-      return entryValueField;
-   }
+        this.autoCreateTable = attributes.attribute(AUTO_CREATE_TABLE);
+        this.entryColumnFamily = attributes.attribute(ENTRY_COLUMN_FAMILY);
+        this.entryTable = attributes.attribute(ENTRY_TABLE);
+        this.entryValueField = attributes.attribute(ENTRY_VALUE_FIELD);
+        this.expirationColumnFamily = attributes.attribute(EXPIRATION_COLUMN_FAMILY);
+        this.expirationTable = attributes.attribute(EXPIRATION_TABLE);
+        this.expirationValueField = attributes.attribute(EXPIRATION_VALUE_FIELD);
+        this.sharedTable = attributes.attribute(SHARED_TABLE);
+        this.key2StringMapper = attributes.attribute(KEY2STRING_MAPPER);
+    }
 
-   public String expirationColumnFamily() {
-      return expirationColumnFamily;
-   }
+    public String key2StringMapper() {
+        return key2StringMapper.get();
+    }
 
-   public String expirationTable() {
-      return expirationTable;
-   }
+    public boolean autoCreateTable() {
+        return autoCreateTable.get();
+    }
 
-   public String expirationValueField() {
-      return expirationValueField;
-   }
+    public String entryColumnFamily() {
+        return entryColumnFamily.get();
+    }
 
-   public String hbaseZookeeperQuorumHost() {
-      return hbaseZookeeperQuorumHost;
-   }
+    public String entryTable() {
+        return entryTable.get();
+    }
 
-   public int hbaseZookeeperClientPort() {
-      return hbaseZookeeperClientPort;
-   }
+    public String entryValueField() {
+        return entryValueField.get();
+    }
 
-   public String keyMapper() {
-      return keyMapper;
-   }
+    public String expirationColumnFamily() {
+        return expirationColumnFamily.get();
+    }
 
-   public boolean sharedTable() {
-      return sharedTable;
-   }
+    public String expirationTable() {
+        return expirationTable.get();
+    }
 
-   @Override
-   public HBaseCacheStoreConfig adapt() {
-      HBaseCacheStoreConfig config = new HBaseCacheStoreConfig();
+    public String expirationValueField() {
+        return expirationValueField.get();
+    }
 
-      LegacyConfigurationAdaptor.adapt(this, config);
-
-      config.setAutoCreateTable(autoCreateTable);
-      config.setEntryColumnFamily(entryColumnFamily);
-      config.setEntryTable(entryTable);
-      config.setEntryValueField(entryValueField);
-      config.setExpirationColumnFamily(expirationColumnFamily);
-      config.setExpirationTable(expirationTable);
-      config.setExpirationValueField(expirationValueField);
-      config.setHbaseZookeeperPropertyClientPort(hbaseZookeeperClientPort);
-      config.setHbaseZookeeperQuorum(hbaseZookeeperQuorumHost);
-      config.setKeyMapper(keyMapper);
-      config.setSharedTable(sharedTable);
-
-      return config;
-   }
+    public boolean sharedTable() {
+        return sharedTable.get();
+    }
 
 }

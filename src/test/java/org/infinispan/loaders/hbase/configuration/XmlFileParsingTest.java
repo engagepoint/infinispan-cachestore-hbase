@@ -1,17 +1,16 @@
 package org.infinispan.loaders.hbase.configuration;
 
-import static org.infinispan.test.TestingUtil.INFINISPAN_START_TAG;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
-import org.infinispan.configuration.cache.CacheLoaderConfiguration;
+import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.AbstractInfinispanTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 @Test(groups = "unit", testName = "loaders.hbase.configuration.XmlFileParsingTest")
 public class XmlFileParsingTest extends AbstractInfinispanTest {
@@ -24,15 +23,22 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
    }
 
    public void testRemoteCacheStore() throws Exception {
-      String config = INFINISPAN_START_TAG +
-            "   <default>\n" +
-            "     <loaders>\n" +
-            "       <hbaseStore xmlns=\"urn:infinispan:config:hbase:6.0\" fetchPersistentState=\"true\" autoCreateTable=\"false\" entryColumnFamily=\"ECF\" entryTable=\"ET\" " +
-            "         entryValueField=\"EVF\" expirationColumnFamily=\"XCF\" expirationTable=\"XT\" expirationValueField=\"XVF\" hbaseZookeeperQuorumHost=\"myhost\" hbaseZookeeperClientPort=\"4321\" sharedTable=\"true\">\n" +
-            "         <async enabled=\"true\" />\n" +
-            "       </hbaseStore>\n" +
-            "     </loaders>\n" +
-            "   </default>\n" +
+      String config = TestingUtil.InfinispanStartTag.LATEST  +
+            "<cache-container default-cache=\"default\">\n" +
+              "        <local-cache name=\"default\">\n" +
+              "            <persistence passivation=\"false\">\n" +
+              "                <hbase-store xmlns=\"urn:infinispan:config:store:hbase:7.2\"\n" +
+              "                             auto-create-table=\"false\"\n" +
+              "                             entry-table=\"ET\"\n" +
+              "                             entry-column-family=\"ECF\"\n" +
+              "                             entry-value-field=\"EVF\"\n" +
+              "                             expiration-table=\"XT\"\n" +
+              "                             expiration-column-family=\"XCF\"\n" +
+              "                             expiration-value-field=\"XVF\"\n" +
+              "                             shared-table=\"true\"/>\n" +
+              "            </persistence>\n" +
+              "        </local-cache>\n" +
+              "    </cache-container>" +
             TestingUtil.INFINISPAN_END_TAG;
 
       HBaseCacheStoreConfiguration store = (HBaseCacheStoreConfiguration) buildCacheManagerWithCacheStore(config);
@@ -43,17 +49,13 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assert store.expirationColumnFamily().equals("XCF");
       assert store.expirationTable().equals("XT");
       assert store.expirationValueField().equals("XVF");
-      assert store.hbaseZookeeperQuorumHost().equals("myhost");
-      assert store.hbaseZookeeperClientPort() == 4321;
       assert store.sharedTable();
-      assert store.fetchPersistentState();
-      assert store.async().enabled();
    }
 
-   private CacheLoaderConfiguration buildCacheManagerWithCacheStore(final String config) throws IOException {
+   private StoreConfiguration buildCacheManagerWithCacheStore(final String config) throws IOException {
       InputStream is = new ByteArrayInputStream(config.getBytes());
       cacheManager = TestCacheManagerFactory.fromStream(is);
-      assert cacheManager.getDefaultCacheConfiguration().loaders().cacheLoaders().size() == 1;
-      return cacheManager.getDefaultCacheConfiguration().loaders().cacheLoaders().get(0);
+      assert cacheManager.getDefaultCacheConfiguration().persistence().stores().size() == 1;
+      return cacheManager.getDefaultCacheConfiguration().persistence().stores().get(0);
    }
 }
