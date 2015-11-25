@@ -14,7 +14,9 @@ public enum Attribute {
    EXPIRATION_COLUMN_FAMILY("expiration-column-family"),
    EXPIRATION_TABLE("expiration-table"),
    EXPIRATION_VALUE_FIELD("expiration-value-field"),
-   SHARED_TABLE("shared-table");
+   SHARED_TABLE("shared-table"),
+   HBASE_ZOOKEEPER_QUORUM("hbase-zookeeper-quorum"),
+   HBASE_ZOOKEEPER_CLIENT_PORT("hbase-zookeeper-client-port");
 
    private final String name;
 

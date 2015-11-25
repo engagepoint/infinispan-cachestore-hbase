@@ -74,6 +74,14 @@ public class HBaseCacheStoreConfigurationParser72 implements ConfigurationParser
                     builder.sharedTable(Boolean.parseBoolean(value));
                     break;
                 }
+                case HBASE_ZOOKEEPER_QUORUM: {
+                    builder.hbaseZookeeperQuorumHost(value);
+                    break;
+                }
+                case HBASE_ZOOKEEPER_CLIENT_PORT: {
+                    builder.hbaseZookeeperClientPort(Integer.parseInt(value));
+                    break;
+                }
                 default: {
                     throw ParseUtils.unexpectedAttribute(reader, i);
                 }

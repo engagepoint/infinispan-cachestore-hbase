@@ -91,6 +91,22 @@ public class HBaseCacheStoreConfigurationBuilder extends AbstractStoreConfigurat
       return this;
    }
 
+   /**
+    * The HBase zookeeper client port. Defaults to 'localhost'
+    */
+   public HBaseCacheStoreConfigurationBuilder hbaseZookeeperQuorumHost(String hbaseZookeeperQuorumHost) {
+      this.attributes.attribute(HBaseCacheStoreConfiguration.HBASE_ZOOKEEPER_QUORUM).set(hbaseZookeeperQuorumHost);
+      return this;
+   }
+
+   /**
+    * The HBase zookeeper client port. Defaults to '2181'
+    */
+   public HBaseCacheStoreConfigurationBuilder hbaseZookeeperClientPort(int hbaseZookeeperClientPort) {
+      this.attributes.attribute(HBaseCacheStoreConfiguration.HBASE_ZOOKEEPER_CLIENT_PORT).set(hbaseZookeeperClientPort);
+      return this;
+   }
+
    @Override
    public Builder<?> read(HBaseCacheStoreConfiguration template) {
       super.read(template);

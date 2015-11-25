@@ -55,8 +55,7 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         entryKeyPrefix = "e_" + (configuration.sharedTable() ? cacheName + "_" : "");
         expirationKeyPrefix = "x_" + (configuration.sharedTable() ? cacheName + "_" : "");
 
-
-        hbf = new HBaseFacade();
+        hbf = new HBaseFacade(prepareHbaseConfiguration());
 
         // create the cache store table if necessary
         if (configuration.autoCreateTable()) {
@@ -217,7 +216,6 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         return entry.getMetadata() != null && entry.getMetadata().expiryTime() != -1;
     }
 
-
     /**
      * Removes all entries from the cache. This include removing items from the expiration table.
      */
@@ -245,6 +243,7 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
             }
         }
     }
+
 
     /**
      * Removes an entry from the cache, given its key.
@@ -378,7 +377,6 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         return load(key) != null;
     }
 
-
     @Override
     public int size() {
         try {
@@ -392,6 +390,7 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
             throw new PersistenceException(ex);
         }
     }
+
 
     private String hashKey(String keyPrefix, Object key) throws UnsupportedKeyTypeException {
         if (key == null) {
@@ -420,6 +419,15 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
     private MarshalledEntry unmarshall(byte[] bytes) throws IOException,
             ClassNotFoundException {
         return bytes == null ? null : (MarshalledEntry) ctx.getMarshaller().objectFromByteBuffer(bytes);
+    }
+
+    private Map<String, String> prepareHbaseConfiguration() {
+        Map<String, String> props = new HashMap<String, String>();
+        props.put("hbase.zookeeper.quorum", configuration.hbaseZookeeperQuorum());
+        Integer hbaseZookeeperClientPort = configuration.hbaseZookeeperClientPort();
+        props.put("hbase.zookeeper.property.clientPort", hbaseZookeeperClientPort != null ?
+                String.valueOf(hbaseZookeeperClientPort) : null);
+        return props;
     }
 
     private boolean isExpired(MarshalledEntry<?, ?> marshalledEntry, long time) {

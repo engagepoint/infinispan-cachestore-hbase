@@ -24,6 +24,8 @@ public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration {
     private final Attribute<String> expirationValueField;
     private final Attribute<Boolean> sharedTable;
     private final Attribute<String> key2StringMapper;
+    private final Attribute<String> hbaseZookeeperQuorum;
+    private final Attribute<Integer> hbaseZookeeperClientPort;
 
     static final AttributeDefinition<String> ENTRY_TABLE = AttributeDefinition.builder("entryTable", null, String.class).build();
     static final AttributeDefinition<String> EXPIRATION_TABLE = AttributeDefinition.builder("expirationTable", null, String.class).build();
@@ -33,14 +35,16 @@ public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration {
     static final AttributeDefinition<String> EXPIRATION_COLUMN_FAMILY = AttributeDefinition.builder("expirationColumnFamily", null, String.class).build();
     static final AttributeDefinition<String> EXPIRATION_VALUE_FIELD = AttributeDefinition.builder("expirationValueField", null, String.class).build();
     static final AttributeDefinition<Boolean> SHARED_TABLE = AttributeDefinition.builder("sharedTable", false, Boolean.class).build();
-    static final AttributeDefinition<String> KEY2STRING_MAPPER = AttributeDefinition.builder("key2StringMapper" ,
+    static final AttributeDefinition<String> KEY2STRING_MAPPER = AttributeDefinition.builder("key2StringMapper",
             MarshalledValueOrPrimitiveMapper.class.getName()).immutable().build();
+    static final AttributeDefinition<String> HBASE_ZOOKEEPER_QUORUM = AttributeDefinition.builder("hbaseZookeeperQuorum", null, String.class).build();
+    static final AttributeDefinition<Integer> HBASE_ZOOKEEPER_CLIENT_PORT = AttributeDefinition.builder("hbaseZookeeperClientPort", null, Integer.class).build();
 
 
     public static AttributeSet attributeDefinitionSet() {
         return new AttributeSet(HBaseCacheStoreConfiguration.class, AbstractStoreConfiguration.attributeDefinitionSet(),
                 ENTRY_TABLE, EXPIRATION_TABLE, AUTO_CREATE_TABLE, ENTRY_COLUMN_FAMILY, ENTRY_VALUE_FIELD, EXPIRATION_COLUMN_FAMILY,
-                EXPIRATION_VALUE_FIELD, SHARED_TABLE, KEY2STRING_MAPPER);
+                EXPIRATION_VALUE_FIELD, SHARED_TABLE, KEY2STRING_MAPPER, HBASE_ZOOKEEPER_QUORUM, HBASE_ZOOKEEPER_CLIENT_PORT);
     }
 
     public HBaseCacheStoreConfiguration(AttributeSet attributes,
@@ -58,6 +62,8 @@ public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration {
         this.expirationValueField = attributes.attribute(EXPIRATION_VALUE_FIELD);
         this.sharedTable = attributes.attribute(SHARED_TABLE);
         this.key2StringMapper = attributes.attribute(KEY2STRING_MAPPER);
+        this.hbaseZookeeperQuorum = attributes.attribute(HBASE_ZOOKEEPER_QUORUM);
+        this.hbaseZookeeperClientPort = attributes.attribute(HBASE_ZOOKEEPER_CLIENT_PORT);
     }
 
     public String key2StringMapper() {
@@ -94,6 +100,14 @@ public class HBaseCacheStoreConfiguration extends AbstractStoreConfiguration {
 
     public boolean sharedTable() {
         return sharedTable.get();
+    }
+
+    public String hbaseZookeeperQuorum() {
+        return hbaseZookeeperQuorum.get();
+    }
+
+    public Integer hbaseZookeeperClientPort() {
+        return hbaseZookeeperClientPort.get();
     }
 
 }

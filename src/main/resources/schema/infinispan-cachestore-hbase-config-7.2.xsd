@@ -63,6 +63,20 @@
                         </xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
+                <xs:attribute name="hbase-zookeeper-quorum" type="xs:string" default="localhost">
+                    <xs:annotation>
+                        <xs:documentation>
+                            The HBase zookeeper client port. Defaults to 'localhost'
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="hbase-zookeeper-client-port" type="xs:int" default="2181">
+                    <xs:annotation>
+                        <xs:documentation>
+                            The HBase zookeeper client port. Defaults to '2181'
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
                 <xs:attribute name="shared-table" type="xs:boolean" default="false">
                     <xs:annotation>
                         <xs:documentation>
