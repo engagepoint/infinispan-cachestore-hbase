@@ -15,11 +15,11 @@
                     locking="PESSIMISTIC"/>
             <persistence passivation="false">
                 <hbase-store xmlns="urn:infinispan:config:store:hbase:7.2"
-                             auto-create-table="false"
-                             entry-table="ISPNCacheStore"
+                             auto-create-table="true"
+                             entry-table="ISPNCacheStoreTest"
                              entry-column-family="E"
                              entry-value-field="EV"
-                             expiration-table="ISPNCacheStoreExpiration"
+                             expiration-table="ISPNCacheStoreExpirationTest"
                              expiration-column-family="X"
                              expiration-value-field="XV"
                              shared-table="true"/>
