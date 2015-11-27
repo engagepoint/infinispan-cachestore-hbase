@@ -87,6 +87,9 @@ public class HBaseCacheStoreConfigurationParser72 implements ConfigurationParser
                 }
             }
         }
+        if (reader.hasNext()) {
+            reader.nextTag();
+        }
     }
 
     public Namespace[] getNamespaces() {
