@@ -17,12 +17,12 @@ public class HBaseCacheStoreTest extends BaseStoreTest {
       HBaseCacheStoreConfigurationBuilder storeConfigurationBuilder =
               builder.persistence().addStore(HBaseCacheStoreConfigurationBuilder.class);
       storeConfigurationBuilder.autoCreateTable(true)
-              .entryColumnFamily("ECF")
-              .entryTable("ET")
-              .entryValueField("EVF")
-              .expirationColumnFamily("XCF")
-              .expirationTable("XT")
-              .expirationValueField("XVF")
+              .entryColumnFamily("ECF1")
+              .entryTable("ET1")
+              .entryValueField("EVF1")
+              .expirationColumnFamily("XCF1")
+              .expirationTable("XT1")
+              .expirationValueField("XVF1")
               .sharedTable(true);
       HBaseCacheStore store = new HBaseCacheStore();
       store.init(createContext(builder.build()));

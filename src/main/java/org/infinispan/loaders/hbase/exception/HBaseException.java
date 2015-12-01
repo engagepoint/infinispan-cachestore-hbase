@@ -1,4 +1,4 @@
-package org.infinispan.loaders.hbase;
+package org.infinispan.loaders.hbase.exception;
 
 /**
  * 

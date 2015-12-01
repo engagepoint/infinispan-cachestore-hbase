@@ -8,6 +8,8 @@ import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.filter.KeyFilter;
 import org.infinispan.loaders.hbase.configuration.HBaseCacheStoreConfiguration;
+import org.infinispan.loaders.hbase.exception.HBaseException;
+import org.infinispan.loaders.hbase.util.HBaseResultScanIterator;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.keymappers.MarshallingTwoWayKey2StringMapper;
@@ -32,7 +34,6 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
     private HBaseCacheStoreConfiguration configuration;
     private TwoWayKey2StringMapper key2StringMapper;
     private InitializationContext ctx;
-    private String cacheName;
     private GlobalConfiguration globalConfiguration;
     private HBaseFacade hbf;
     private String entryKeyPrefix;
@@ -43,17 +44,17 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         log.debug("Hbase cache store initialising");
         this.configuration = ctx.getConfiguration();
         this.ctx = ctx;
-        cacheName = ctx.getCache().getName();
         globalConfiguration = ctx.getCache().getCacheManager().getCacheManagerConfiguration();
+
+        // config for entries
+        String cacheName = ctx.getCache().getName();
+        entryKeyPrefix = "e_" + (configuration.sharedTable() ? cacheName + "_" : "");
+        expirationKeyPrefix = "x_" + (configuration.sharedTable() ? cacheName + "_" : "");
     }
 
     @Override
     public void start() {
         log.info("Hbase cache store starting");
-
-        // config for entries
-        entryKeyPrefix = "e_" + (configuration.sharedTable() ? cacheName + "_" : "");
-        expirationKeyPrefix = "x_" + (configuration.sharedTable() ? cacheName + "_" : "");
 
         hbf = new HBaseFacade(prepareHbaseConfiguration());
 
@@ -128,33 +129,34 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
 
             @Override
             public Void call() throws Exception {
-                Map<String, byte[]> values = hbf.scan(
+                try (HBaseResultScanIterator values = hbf.scan(
                         configuration.entryTable(),
                         configuration.entryColumnFamily(),
-                        configuration.entryValueField());
+                        configuration.entryValueField())) {
+                    while (values.hasNext()) {
+                        Entry<String, byte[]> valueEntry = values.next();
 
-                for (Entry<String, byte[]> mapEntry : values.entrySet()) {
-                    Object key = unhashKey(entryKeyPrefix, mapEntry.getKey());
-                    if (taskContext.isStopped()) {
-                        break;
-                    }
-                    if (filter != null && !filter.accept(key)) {
-                        continue;
-                    }
-                    MarshalledEntry entry;
-                    if (fetchValue || fetchMetadata) {
-                        byte[] value = mapEntry.getValue();
-
-                        if (value == null) {
-                            return null;
+                        Object key = unhashKey(entryKeyPrefix, valueEntry.getKey());
+                        if (taskContext.isStopped()) {
+                            break;
                         }
-                        entry = unmarshall(value);
-                    } else {
-                        entry = ctx.getMarshalledEntryFactory().newMarshalledEntry(key, (Object) null, null);
-                    }
-                    task.processEntry(entry, taskContext);
-                }
+                        if (filter != null && !filter.accept(key)) {
+                            continue;
+                        }
+                        MarshalledEntry entry;
+                        if (fetchValue || fetchMetadata) {
+                            byte[] value = valueEntry.getValue();
 
+                            if (value == null) {
+                                return null;
+                            }
+                            entry = unmarshall(value);
+                        } else {
+                            entry = ctx.getMarshalledEntryFactory().newMarshalledEntry(key, (Object) null, null);
+                        }
+                        task.processEntry(entry, taskContext);
+                    }
+                }
                 return null;
             }
         });
@@ -180,7 +182,7 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         String hashedKey = hashKey(this.entryKeyPrefix, key);
 
         try {
-            Map<String, byte[]> qualifiersData = new HashMap<String, byte[]>();
+            Map<String, byte[]> qualifiersData = new HashMap<>();
 
             byte[] marshall = marshall(entry);
             qualifiersData.put(configuration.entryValueField(), marshall);
@@ -339,18 +341,20 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         try {
             // query the expiration table to find out the entries that have been expired
             long ts = ctx.getTimeService().wallClockTime();
-            Map<String, Map<String, Map<String, byte[]>>> rowsToPurge = hbf.readRows(
-                    configuration.expirationTable(), this.expirationKeyPrefix, ts, configuration.expirationColumnFamily(),
+            HBaseResultScanIterator resultIterator = hbf.readRows(
+                    configuration.expirationTable(),
+                    expirationKeyPrefix,
+                    ts,
+                    configuration.expirationColumnFamily(),
                     configuration.expirationValueField());
 
-            Set<Object> keysToDelete = new HashSet<Object>();
-            Set<Object> expKeysToDelete = new HashSet<Object>();
+            Set<Object> keysToDelete = new HashSet<>();
+            Set<Object> expKeysToDelete = new HashSet<>();
 
-            // figure out the cache entry keys for the entries that have expired
-            for (Entry<String, Map<String, Map<String, byte[]>>> entry : rowsToPurge.entrySet()) {
+            while (resultIterator.hasNext()) {
+                Entry<String, byte[]> entry = resultIterator.next();
                 expKeysToDelete.add(entry.getKey());
-                byte[] targetKeyBytes = entry.getValue().get(configuration.expirationColumnFamily())
-                        .get(configuration.expirationValueField());
+                byte[] targetKeyBytes = entry.getValue();
                 String targetKey = Bytes.toString(targetKeyBytes);
                 keysToDelete.add(targetKey);
             }
@@ -379,16 +383,7 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
 
     @Override
     public int size() {
-        try {
-            Map<String, byte[]> entryTable = hbf.scan(
-                    configuration.entryTable(),
-                    configuration.entryColumnFamily(),
-                    configuration.entryValueField());
-            return entryTable.size();
-        } catch (HBaseException ex) {
-            log.error("Failed to fetch element count from the hbase store");
-            throw new PersistenceException(ex);
-        }
+        return loadAllKeysForTable(configuration.entryTable(), null).size();
     }
 
 

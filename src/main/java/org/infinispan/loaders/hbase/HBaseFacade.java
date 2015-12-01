@@ -4,6 +4,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.infinispan.loaders.hbase.exception.HBaseException;
+import org.infinispan.loaders.hbase.util.HBaseResultScanIterator;
+import org.infinispan.loaders.hbase.util.HBaseUtils;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -46,15 +49,6 @@ public class HBaseFacade {
         }
     }
 
-    private void close(HBaseAdmin admin) {
-        if (admin != null) {
-            try {
-                admin.close();
-            } catch (IOException e) {
-            }
-        }
-    }
-
     /**
      * Creates a new HBase table.
      *
@@ -79,10 +73,10 @@ public class HBaseFacade {
         if (name == null || "".equals(name)) {
             throw new HBaseException("Table name must not be empty.");
         }
-        HBaseAdmin admin = null;
-        try {
-            admin = new HBaseAdmin(CONFIG);
-
+        if (tableExists(name)) {
+            return;
+        }
+        try (HBaseAdmin admin = new HBaseAdmin(CONFIG)) {
             HTableDescriptor desc = new HTableDescriptor(name.getBytes());
 
             // add all column families
@@ -107,8 +101,6 @@ public class HBaseFacade {
             admin.createTable(desc);
         } catch (Exception ex) {
             throw new HBaseException("Exception occurred when creating HBase table.", ex);
-        } finally {
-            close(admin);
         }
     }
 
@@ -122,17 +114,11 @@ public class HBaseFacade {
         if (name == null || "".equals(name)) {
             throw new HBaseException("Table name must not be empty.");
         }
-
-        HBaseAdmin admin = null;
-        try {
-            admin = new HBaseAdmin(CONFIG);
-
+        try (HBaseAdmin admin = new HBaseAdmin(CONFIG)) {
             admin.disableTable(name);
             admin.deleteTable(name);
         } catch (Exception ex) {
             throw new HBaseException("Exception occurred when deleting HBase table.", ex);
-        } finally {
-            close(admin);
         }
     }
 
@@ -146,16 +132,10 @@ public class HBaseFacade {
         if (name == null || "".equals(name)) {
             throw new HBaseException("Table name must not be empty.");
         }
-
-        HBaseAdmin admin = null;
-        try {
-            admin = new HBaseAdmin(CONFIG);
-
+        try (HBaseAdmin admin = new HBaseAdmin(CONFIG)) {
             return admin.isTableAvailable(name);
         } catch (Exception ex) {
             throw new HBaseException("Exception occurred when deleting HBase table.", ex);
-        } finally {
-            close(admin);
         }
     }
 
@@ -183,9 +163,8 @@ public class HBaseFacade {
         log.debugf("Writing %s data values to table %s and key %s.", dataMap.size(), tableName, key);
 
         // write data to HBase, going column family by column family, and field by field
-        HTable table = null;
-        try {
-            table = new HTable(CONFIG, tableName);
+        try (HTable table = new HTable(CONFIG, tableName)) {
+            ;
             Put p = new Put(Bytes.toBytes(key));
             for (Entry<String, Map<String, byte[]>> columFamilyEntry : dataMap.entrySet()) {
                 String cfName = columFamilyEntry.getKey();
@@ -198,12 +177,6 @@ public class HBaseFacade {
             table.put(p);
         } catch (IOException ex) {
             throw new HBaseException("Exception happened while " + "writing row to HBase.", ex);
-        } finally {
-            try {
-                table.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
     }
 
@@ -232,9 +205,8 @@ public class HBaseFacade {
         log.debugf("Reading row from table %s and key %s.", tableName, key);
 
         // read data from HBase
-        HTable table = null;
-        try {
-            table = new HTable(CONFIG, tableName);
+        try (HTable table = new HTable(CONFIG, tableName)) {
+            ;
             Get g = new Get(Bytes.toBytes(key));
             Result result = table.get(g);
             Map<String, Map<String, byte[]>> resultMap = new HashMap<String, Map<String, byte[]>>(
@@ -247,7 +219,7 @@ public class HBaseFacade {
 
             // extract the fields and values from all column families
             for (String cfName : columnFamilies) {
-                Map<String, byte[]> cfDataMap = new HashMap<String, byte[]>();
+                Map<String, byte[]> cfDataMap = new HashMap<>();
 
                 Map<byte[], byte[]> familyMap = result.getFamilyMap(Bytes.toBytes(cfName));
                 for (Entry<byte[], byte[]> familyMapEntry : familyMap.entrySet()) {
@@ -260,12 +232,6 @@ public class HBaseFacade {
             return resultMap;
         } catch (IOException ex) {
             throw new HBaseException("Exception happened while reading row from HBase.", ex);
-        } finally {
-            try {
-                table.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
     }
 
@@ -284,8 +250,8 @@ public class HBaseFacade {
      * that column family for that row.
      * @throws HBaseException
      */
-    public Map<String, Map<String, Map<String, byte[]>>> readRows(String tableName,
-                                                                  String keyPrefix, long ts, String columnFamily, String qualifier) throws HBaseException {
+    public HBaseResultScanIterator readRows(String tableName,
+                                            String keyPrefix, long ts, String columnFamily, String qualifier) throws HBaseException {
         if (tableName == null || "".equals(tableName)) {
             throw new HBaseException("Table name must not be empty.");
         }
@@ -299,57 +265,23 @@ public class HBaseFacade {
         log.debugf("Reading rows from table %s with key prefix %s and ts %s", tableName, keyPrefix,
                 ts);
 
-        // read data from HBase
-        HTable table = null;
-        ResultScanner scanner = null;
+
+        Scan scan = new Scan();
+        scan.setMaxVersions(Integer.MAX_VALUE);
+        scan.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
+        scan.setStartRow(Bytes.toBytes(keyPrefix));
+        scan.setStopRow(Bytes.toBytes(keyPrefix + ts));
+
         try {
-            table = new HTable(CONFIG, tableName);
-
-            Scan s = new Scan();
-            s.setMaxVersions(Integer.MAX_VALUE);
-            s.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
-            s.setStartRow(Bytes.toBytes(keyPrefix));
-            s.setStopRow(Bytes.toBytes(keyPrefix + ts));
-
-            Map<String, Map<String, Map<String, byte[]>>> resultMaps = new HashMap<String, Map<String, Map<String, byte[]>>>();
-
-            // scan the table in batches to improve performance
-            scanner = table.getScanner(s);
-            Result[] resultBatch = scanner.next(SCAN_BATCH_SIZE);
-
-            while (resultBatch != null && resultBatch.length > 0) {
-                for (int i = 0; i < resultBatch.length; i++) {
-                    // extract the data for this row
-                    if (!resultBatch[i].isEmpty()) {
-                        List<KeyValue> kv = resultBatch[i].getColumn(Bytes.toBytes(columnFamily),
-                                Bytes.toBytes(qualifier));
-
-                        Map<String, byte[]> resultCFMap = new HashMap<String, byte[]>();
-                        for (KeyValue keyValue : kv) {
-                            resultCFMap.put(qualifier, keyValue.getValue());
-                        }
-
-                        Map<String, Map<String, byte[]>> resultMap = Collections.singletonMap(
-                                columnFamily, resultCFMap);
-
-                        resultMaps.put(getKeyFromResult(resultBatch[i]), resultMap);
-                    }
-                }
-
-                // get the next batch
-                resultBatch = scanner.next(SCAN_BATCH_SIZE);
-            }
-
-            return resultMaps;
+            return new HBaseResultScanIterator(
+                    new HTable(CONFIG, tableName),
+                    scan,
+                    Integer.MAX_VALUE,
+                    columnFamily,
+                    qualifier);
         } catch (IOException ex) {
-            throw new HBaseException("Exception happened while reading rows from HBase.", ex);
-        } finally {
-            try {
-                table.close();
-                scanner.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
+            throw new HBaseException(
+                    "Exception happened while " + "scanning table " + tableName + ".", ex);
         }
     }
 
@@ -372,10 +304,7 @@ public class HBaseFacade {
         log.debugf("Removing row from table %s with key %s.", tableName, key);
 
         // remove data from HBase
-        HTable table = null;
-        try {
-            table = new HTable(CONFIG, tableName);
-
+        try (HTable table = new HTable(CONFIG, tableName)) {
             // check to see if it exists first
             Get get = new Get(Bytes.toBytes(key));
             boolean exists = table.exists(get);
@@ -388,12 +317,6 @@ public class HBaseFacade {
             return exists;
         } catch (IOException ex) {
             throw new HBaseException("Exception happened while " + "deleting row from HBase.", ex);
-        } finally {
-            try {
-                table.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
     }
 
@@ -415,10 +338,7 @@ public class HBaseFacade {
         log.debugf("Removing rows from table %s.", tableName);
 
         // remove data from HBase
-        HTable table = null;
-        try {
-            table = new HTable(CONFIG, tableName);
-
+        try (HTable table = new HTable(CONFIG, tableName)) {
             List<Delete> deletes = new ArrayList<Delete>(keys.size());
             for (Object key : keys) {
                 deletes.add(new Delete(Bytes.toBytes((String) key)));
@@ -427,12 +347,6 @@ public class HBaseFacade {
             table.delete(deletes);
         } catch (IOException ex) {
             throw new HBaseException("Exception happened while " + "deleting rows from HBase.", ex);
-        } finally {
-            try {
-                table.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
     }
 
@@ -449,7 +363,7 @@ public class HBaseFacade {
      * @return map mapping row keys to values for all rows
      * @throws HBaseException
      */
-    public Map<String, byte[]> scan(String tableName, String columnFamily, String qualifier)
+    public HBaseResultScanIterator scan(String tableName, String columnFamily, String qualifier)
             throws HBaseException {
         return scan(tableName, Integer.MAX_VALUE, columnFamily, qualifier);
     }
@@ -468,8 +382,8 @@ public class HBaseFacade {
      * @return map mapping row keys to values for all rows
      * @throws HBaseException
      */
-    public Map<String, byte[]> scan(String tableName, int numEntries, String columnFamily,
-                                    String qualifier) throws HBaseException {
+    public HBaseResultScanIterator scan(String tableName, int numEntries, String columnFamily,
+                                        String qualifier) throws HBaseException {
         if (isEmpty(tableName)) {
             throw new IllegalArgumentException("tableName cannot be null or empty.");
         }
@@ -488,57 +402,11 @@ public class HBaseFacade {
         log.debugf("Scanning table %s.", tableName);
 
         // read data from HBase
-        ResultScanner scanner = null;
-        HTable table = null;
         try {
-            table = new HTable(CONFIG, tableName);
-            scanner = table.getScanner(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
-
-            // scan the table in batches to improve performance
-            Map<String, byte[]> results = new HashMap<String, byte[]>();
-            int ct = 0;
-            while (ct < numEntries) {
-                int batchSize = Math.min(SCAN_BATCH_SIZE, numEntries - ct);
-                Result[] batch = scanner.next(batchSize);
-
-                if (batch.length <= 0) {
-                    break;
-                } else {
-                    for (int i = 0; i < batch.length; i++) {
-                        // extract the data for this row
-                        Result curr = batch[i];
-
-                        String key = getKeyFromResult(curr);
-
-                        byte[] valueArr = null;
-                        if (curr.containsColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier))) {
-                            valueArr = curr
-                                    .getValue(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
-                            log.tracef("Value=%s", Bytes.toString(valueArr));
-                        }
-
-                        log.tracef("Added %s->%s", key, Bytes.toString(valueArr));
-                        results.put(key, valueArr);
-                    }
-                    ct += batch.length;
-                }
-            }
-
-            return results;
+            return new HBaseResultScanIterator(new HTable(CONFIG, tableName), numEntries, columnFamily, qualifier);
         } catch (IOException ex) {
             throw new HBaseException(
                     "Exception happened while " + "scanning table " + tableName + ".", ex);
-        } catch (Exception ex) {
-            throw new HBaseException(
-                    "Exception happened while " + "scanning table " + tableName + ".", ex);
-        } finally {
-            scanner.close();
-            try {
-                table.close();
-                scanner.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
     }
 
@@ -557,60 +425,26 @@ public class HBaseFacade {
         log.debugf("Scanning table %s for keys.", tableName);
 
         // scan the entire table, extracting the key from each row
-        ResultScanner scanner = null;
-        HTable table = null;
-        try {
-            table = new HTable(CONFIG, tableName);
-            scanner = table.getScanner(new Scan());
-
-            Set<Object> results = new HashSet<Object>();
+        try (HTable table = new HTable(CONFIG, tableName);
+             ResultScanner scanner = table.getScanner(new Scan())) {
+            Set<Object> results = new HashSet<>();
 
             // batch the scan to improve performance
             Result[] resultBatch = scanner.next(SCAN_BATCH_SIZE);
             while (resultBatch != null && resultBatch.length > 0) {
-                for (int i = 0; i < resultBatch.length; i++) {
-                    String key = getKeyFromResult(resultBatch[i]);
+                for (Result aResultBatch : resultBatch) {
+                    String key = HBaseUtils.getKeyFromResult(aResultBatch);
                     results.add(key);
                 }
 
                 // get the next batch
                 resultBatch = scanner.next(SCAN_BATCH_SIZE);
             }
-
             return results;
         } catch (IOException ex) {
             throw new HBaseException(
                     "Exception happened while " + "scanning table " + tableName + ".", ex);
-        } finally {
-            scanner.close();
-            try {
-                table.close();
-                scanner.close();
-            } catch (Exception ex) {
-                // do nothing
-            }
         }
-    }
-
-    private String getKeyFromResult(Result result) {
-        List<KeyValue> l = result.list();
-        String key = null;
-
-        // This assumes that the first keyValue will always
-        // be the one that contains the actual row key. So we
-        // don't need to iterate over all keyValue items.
-        // We can always iterate over all KeyValues and output
-        // a warning message if the key inferred for a given
-        // KeyValue is different than the other KeyValues' keys.
-        // This also assumes that the string representation of
-        // the KeyValue has the key as the start of the string,
-        // going all the way to the first "/".
-        KeyValue keyValue = l.get(0);
-        String keyValStr = keyValue.toString();
-        int index = keyValStr.indexOf("/");
-        key = keyValStr.substring(0, index);
-
-        return key;
     }
 
     /**
@@ -635,5 +469,6 @@ public class HBaseFacade {
 
         return false;
     }
+
 
 }
