@@ -62,53 +62,11 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         if (configuration.autoCreateTable()) {
             log.infof("Automatically creating %s and %s tables.", configuration.entryTable(),
                     configuration.expirationTable());
-            // create required HBase structures (table and column families) for the cache
-            try {
-                List<String> colFamilies = Collections.singletonList(configuration.entryColumnFamily());
-
-                // column family should only support a max of 1 version
-                hbf.createTable(configuration.entryTable(), colFamilies, 1);
-            } catch (HBaseException ex) {
-                if (ex.getCause() instanceof TableExistsException) {
-                    log.infof("Not creating %s because it already exists.", configuration.entryTable());
-                } else {
-                    throw new PersistenceException("Got HadoopException while creating the "
-                            + configuration.entryTable() + " cache store table.", ex);
-                }
-            }
-
-            // create required HBase structures (table and column families) for the cache expiration
-            // table
-            try {
-                List<String> colFamilies = Collections.singletonList(configuration.expirationColumnFamily());
-
-                // column family should only support a max of 1 version
-                hbf.createTable(configuration.expirationTable(), colFamilies, 1);
-            } catch (HBaseException ex) {
-                if (ex.getCause() instanceof TableExistsException) {
-                    log.infof("Not creating %s because it already exists.", configuration.expirationTable());
-                } else {
-                    throw new PersistenceException("Got HadoopException while creating the "
-                            + configuration.expirationTable() + " cache store table.", ex);
-                }
-            }
+            createTable(configuration.entryTable(), configuration.entryColumnFamily());
+            createTable(configuration.expirationTable(), configuration.expirationColumnFamily());
         }
 
-        try {
-            Object mapper = Util.loadClassStrict(configuration.key2StringMapper(),
-                    globalConfiguration.classLoader()).newInstance();
-            if (mapper instanceof TwoWayKey2StringMapper) {
-                key2StringMapper = (TwoWayKey2StringMapper) mapper;
-                ((MarshallingTwoWayKey2StringMapper) key2StringMapper).setMarshaller(ctx.getMarshaller());
-            }
-        } catch (Exception e) {
-            log.errorf("Trying to instantiate %s, however it failed due to %s", configuration.key2StringMapper(),
-                    e.getClass().getName());
-            throw new IllegalStateException("This should not happen.", e);
-        }
-        if (log.isTraceEnabled()) {
-            log.tracef("Using key2StringMapper: %s", key2StringMapper.getClass().getName());
-        }
+        prepareKey2StringMapper();
 
         log.info("HBaseCacheStore started");
     }
@@ -182,26 +140,10 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         String hashedKey = hashKey(this.entryKeyPrefix, key);
 
         try {
-            Map<String, byte[]> qualifiersData = new HashMap<>();
-
-            byte[] marshall = marshall(entry);
-            qualifiersData.put(configuration.entryValueField(), marshall);
-
-            Map<String, Map<String, byte[]>> familiesData = Collections.singletonMap(configuration.entryColumnFamily(),
-                    qualifiersData);
-
-            hbf.addRow(configuration.entryTable(), hashedKey, familiesData);
-
+            writeEntry(entry, hashedKey);
 
             if (canExpire(entry)) {
-                Map<String, byte[]> expValMap = Collections.singletonMap(configuration.expirationValueField(),
-                        Bytes.toBytes(hashedKey));
-                Map<String, Map<String, byte[]>> expCfMap = Collections.singletonMap(
-                        configuration.expirationColumnFamily(), expValMap);
-
-                String expKey = String.valueOf(getExpiryTime(entry.getMetadata()));
-                String hashedExpKey = hashKey(this.expirationKeyPrefix, expKey);
-                hbf.addRow(configuration.expirationTable(), hashedExpKey, expCfMap);
+                writeExpireEntry(entry, hashedKey);
             }
 
         } catch (HBaseException ex) {
@@ -212,10 +154,6 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
             throw new PersistenceException(ex2);
         }
 
-    }
-
-    private boolean canExpire(MarshalledEntry entry) {
-        return entry.getMetadata() != null && entry.getMetadata().expiryTime() != -1;
     }
 
     /**
@@ -245,7 +183,6 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
             }
         }
     }
-
 
     /**
      * Removes an entry from the cache, given its key.
@@ -381,11 +318,50 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         return load(key) != null;
     }
 
+
     @Override
     public int size() {
         return loadAllKeysForTable(configuration.entryTable(), null).size();
     }
 
+    private void writeEntry(MarshalledEntry entry, String hashedKey) throws IOException, InterruptedException, HBaseException {
+        Map<String, byte[]> qualifiersData = new HashMap<>();
+
+        byte[] marshall = marshall(entry);
+        qualifiersData.put(configuration.entryValueField(), marshall);
+
+        Map<String, Map<String, byte[]>> familiesData = Collections.singletonMap(configuration.entryColumnFamily(),
+                qualifiersData);
+
+        hbf.addRow(configuration.entryTable(), hashedKey, familiesData);
+    }
+
+    private void writeExpireEntry(MarshalledEntry entry, String hashedKey) throws HBaseException {
+        Map<String, byte[]> expValMap = Collections.singletonMap(configuration.expirationValueField(),
+                Bytes.toBytes(hashedKey));
+        Map<String, Map<String, byte[]>> expCfMap = Collections.singletonMap(
+                configuration.expirationColumnFamily(), expValMap);
+
+        String expKey = String.valueOf(getExpiryTime(entry.getMetadata()));
+        String hashedExpKey = hashKey(this.expirationKeyPrefix, expKey);
+        hbf.addRow(configuration.expirationTable(), hashedExpKey, expCfMap);
+    }
+
+    private void createTable(String name,  String family) {
+        try {
+            List<String> colFamilies = Collections.singletonList(family);
+
+            // column family should only support a max of 1 version
+            hbf.createTable(name, colFamilies, 1);
+        } catch (HBaseException ex) {
+            if (ex.getCause() instanceof TableExistsException) {
+                log.infof("Not creating %s because it already exists.", name);
+            } else {
+                throw new PersistenceException("Got HadoopException while creating the "
+                        + name + " cache store table.", ex);
+            }
+        }
+    }
 
     private String hashKey(String keyPrefix, Object key) throws UnsupportedKeyTypeException {
         if (key == null) {
@@ -407,6 +383,25 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         }
     }
 
+
+    private void prepareKey2StringMapper() {
+        try {
+            Object mapper = Util.loadClassStrict(configuration.key2StringMapper(),
+                    globalConfiguration.classLoader()).newInstance();
+            if (mapper instanceof TwoWayKey2StringMapper) {
+                key2StringMapper = (TwoWayKey2StringMapper) mapper;
+                ((MarshallingTwoWayKey2StringMapper) key2StringMapper).setMarshaller(ctx.getMarshaller());
+            }
+        } catch (Exception e) {
+            log.errorf("Trying to instantiate %s, however it failed due to %s", configuration.key2StringMapper(),
+                    e.getClass().getName());
+            throw new IllegalStateException("This should not happen.", e);
+        }
+        if (log.isTraceEnabled()) {
+            log.tracef("Using key2StringMapper: %s", key2StringMapper.getClass().getName());
+        }
+    }
+
     private byte[] marshall(MarshalledEntry entry) throws IOException, InterruptedException {
         return ctx.getMarshaller().objectToByteBuffer(entry);
     }
@@ -423,6 +418,10 @@ public class HBaseCacheStore implements AdvancedLoadWriteStore {
         props.put("hbase.zookeeper.property.clientPort", hbaseZookeeperClientPort != null ?
                 String.valueOf(hbaseZookeeperClientPort) : null);
         return props;
+    }
+
+    private boolean canExpire(MarshalledEntry entry) {
+        return entry.getMetadata() != null && entry.getMetadata().expiryTime() != -1;
     }
 
     private boolean isExpired(MarshalledEntry<?, ?> marshalledEntry, long time) {
