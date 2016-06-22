@@ -15,7 +15,7 @@
                     locking="PESSIMISTIC"/>
             <persistence passivation="false">
                 <hbase-store xmlns="urn:infinispan:config:store:hbase:7.2"
-                             hbase-zookeeper-quorum="audit-cl-1,audit-cl-3,audit-cl-2"
+                             hbase-zookeeper-quorum="192.168.32.243"
                              hbase-zookeeper-client-port="2181"
                              auto-create-table="true"
                              entry-table="ISPNCacheStoreTest"
